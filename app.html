@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>요청접수현황 시스템</title>
+
+<!-- Firebase v10 compat -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<style>
+/* ── 리셋 ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Noto Sans KR', sans-serif;
+  font-size: 14px;
+  color: #1a1a1a;
+  background: #f5f4f0;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font-family: inherit; }
+
+/* ── 레이아웃 ── */
+#login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #f5f4f0;
+}
+#app-shell { display: none; height: 100vh; flex-direction: column; }
+#app-shell.visible { display: flex; }
+.app-layout { display: flex; flex: 1; overflow: hidden; }
+
+/* ── 사이드바 ── */
+.sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  background: #fff;
+  border-right: 1px solid #eeede8;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 10px;
+  overflow-y: auto;
+}
+.sb-logo { font-size: 13px; font-weight: 700; color: #1a1a1a; padding: 4px 8px; margin-bottom: 2px; }
+.sb-sub { font-size: 11px; color: #aaa; padding: 0 8px 12px; border-bottom: 1px solid #f0efe9; margin-bottom: 10px; }
+.sb-section { font-size: 10px; font-weight: 600; color: #bbb; padding: 0 8px; margin: 10px 0 4px; letter-spacing: .06em; text-transform: uppercase; }
+.sb-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 8px; border-radius: 8px;
+  font-size: 12px; color: #555; cursor: pointer;
+  transition: background .12s; user-select: none;
+}
+.sb-item:hover { background: #f5f4f0; color: #1a1a1a; }
+.sb-item.active { background: #1a1a1a; color: #fff; }
+.sb-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+.sb-badge {
+  margin-left: auto; font-size: 10px; font-weight: 600;
+  background: #fdeaea; color: #9b2424;
+  padding: 1px 6px; border-radius: 20px;
+}
+.sb-user {
+  margin-top: auto; padding: 10px 8px;
+  border-top: 1px solid #f0efe9;
+  display: flex; align-items: center; gap: 8px;
+}
+.sb-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; flex-shrink: 0;
+}
+.sb-uname { font-size: 11px; font-weight: 600; color: #1a1a1a; }
+.sb-uemail { font-size: 10px; color: #aaa; }
+.sb-logout { font-size: 10px; color: #bbb; cursor: pointer; margin-top: 4px; }
+.sb-logout:hover { color: #888; }
+
+/* ── 모바일 상단바 ── */
+.mobile-topbar {
+  display: none;
+  background: #fff;
+  border-bottom: 1px solid #eeede8;
+  padding: 12px 16px;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.mt-title { font-size: 14px; font-weight: 700; color: #1a1a1a; }
+.mt-right { display: flex; align-items: center; gap: 10px; }
+
+/* ── 메인 콘텐츠 ── */
+.main-content { flex: 1; overflow-y: auto; background: #f5f4f0; }
+.page { display: none; padding: 24px 28px; }
+.page.active { display: block; }
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
+}
+.page-title { font-size: 18px; font-weight: 700; color: #1a1a1a; }
+.page-sub { font-size: 12px; color: #888; margin-top: 2px; }
+
+/* ── 카드 ── */
+.card {
+  background: #fff; border: 1px solid #eeede8;
+  border-radius: 12px; padding: 16px;
+  margin-bottom: 12px;
+}
+.card-title { font-size: 13px; font-weight: 600; color: #888; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .05em; font-size: 11px; }
+
+/* ── 지표 그리드 ── */
+.metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+.metric-box { background: #fff; border: 1px solid #eeede8; border-radius: 12px; padding: 14px 16px; }
+.metric-n { font-size: 28px; font-weight: 700; line-height: 1; }
+.metric-l { font-size: 11px; color: #888; margin-top: 6px; }
+
+/* ── 버튼 ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 8px; border: 1px solid #ddd;
+  background: #fff; color: #1a1a1a; font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: background .12s; white-space: nowrap;
+}
+.btn:hover { background: #f5f4f0; }
+.btn-primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+.btn-primary:hover { background: #333; }
+.btn-danger { background: #fdeaea; color: #9b2424; border-color: #f0b0b0; }
+.btn-danger:hover { background: #f7c1c1; }
+.btn svg { width: 14px; height: 14px; }
+
+/* ── 폼 요소 ── */
+.form-group { margin-bottom: 14px; }
+.form-label { font-size: 11px; font-weight: 600; color: #888; display: flex; align-items: center; gap: 4px; margin-bottom: 5px; }
+.form-label .optional { font-weight: 400; color: #bbb; }
+.form-input {
+  width: 100%; border: 1px solid #e0dfd9; border-radius: 8px;
+  padding: 10px 12px; font-size: 16px; color: #1a1a1a;
+  background: #fff; outline: none; transition: border-color .15s;
+  font-family: inherit; appearance: none;
+}
+.form-input:focus { border-color: #999; }
+.form-input.textarea { resize: vertical; min-height: 80px; font-size: 14px; }
+.form-input.select-input { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; cursor: pointer; }
+
+/* ── 뱃지 ── */
+.chip { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+.chip-blue   { background: #e8f1fb; color: #1558a0; }
+.chip-amber  { background: #fef0d8; color: #7a4a0a; }
+.chip-green  { background: #e6f2de; color: #2d6010; }
+.chip-gray   { background: #f0efea; color: #555; }
+.chip-purple { background: #eeedfd; color: #3d359e; }
+.chip-red    { background: #fdeaea; color: #9b2424; }
+.tag { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 5px; margin-right: 3px; }
+.tag-blue   { background: #e8f1fb; color: #1558a0; }
+.tag-purple { background: #eeedfd; color: #3d359e; }
+.tag-green  { background: #e6f2de; color: #2d6010; }
+.tag-amber  { background: #fef0d8; color: #7a4a0a; }
+.day-badge  { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; }
+.day-ok     { background: #f0efea; color: #666; }
+.day-warn   { background: #fef0d8; color: #7a4a0a; }
+.day-danger { background: #fdeaea; color: #9b2424; }
+
+/* ── 필터 행 ── */
+.filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+.filter-chip { font-size: 12px; padding: 5px 13px; border-radius: 20px; border: 1px solid #ddd; background: #fff; color: #666; cursor: pointer; transition: all .12s; white-space: nowrap; }
+.filter-chip.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+.filter-spacer { margin-left: auto; }
+
+/* ── 테이블 ── */
+.table-wrap { background: #fff; border: 1px solid #eeede8; border-radius: 12px; overflow: hidden; }
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600;
+  color: #888; background: #faf9f6; border-bottom: 1px solid #eeede8;
+  white-space: nowrap;
+}
+.data-table td { padding: 11px 14px; border-bottom: 1px solid #f5f4f0; font-size: 13px; vertical-align: middle; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tbody tr { cursor: pointer; transition: background .1s; }
+.data-table tbody tr:hover td { background: #faf9f6; }
+.td-title { font-weight: 600; color: #1a1a1a; max-width: 220px; }
+.td-title p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-meta { font-size: 11px; color: #888; margin-top: 3px; }
+
+/* ── 요청 카드 (모바일용) ── */
+.req-list { display: none; }
+.req-card { background: #fff; border: 1px solid #eeede8; border-radius: 12px; padding: 14px; margin-bottom: 8px; cursor: pointer; transition: box-shadow .12s; }
+.req-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.req-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+.req-card-title { font-size: 14px; font-weight: 600; color: #1a1a1a; line-height: 1.4; }
+.req-card-meta { font-size: 12px; color: #888; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* ── 홈 화면 (클라이언트) ── */
+.home-stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+.home-action-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+.home-action-card { background: #fff; border: 1px solid #eeede8; border-radius: 12px; padding: 16px; cursor: pointer; transition: box-shadow .12s; }
+.home-action-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.ha-icon { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+.ha-icon svg { width: 18px; height: 18px; }
+.ha-title { font-size: 13px; font-weight: 600; color: #1a1a1a; margin-bottom: 2px; }
+.ha-sub { font-size: 11px; color: #888; }
+
+/* ── 모달 ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.45); z-index: 200;
+  align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: #fff; border-radius: 16px; width: 100%;
+  max-width: 540px; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 8px 40px rgba(0,0,0,.18);
+}
+.modal-header {
+  padding: 18px 20px 14px; border-bottom: 1px solid #f0efe9;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  position: sticky; top: 0; background: #fff; z-index: 1;
+}
+.modal-title { font-size: 15px; font-weight: 700; color: #1a1a1a; line-height: 1.4; }
+.modal-close { background: none; border: none; cursor: pointer; color: #aaa; padding: 2px; flex-shrink: 0; }
+.modal-close:hover { color: #555; }
+.modal-close svg { width: 18px; height: 18px; }
+.modal-body { padding: 18px 20px; }
+.modal-footer { padding: 14px 20px; border-top: 1px solid #f0efe9; display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ── 타임라인 ── */
+.timeline { margin-top: 4px; }
+.tl-item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f5f4f0; }
+.tl-item:last-child { border-bottom: none; }
+.tl-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+.tl-content { flex: 1; }
+.tl-text { font-size: 13px; color: #333; }
+.tl-date { font-size: 11px; color: #aaa; margin-top: 2px; }
+
+/* ── 상세 정보 그리드 ── */
+.info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: #faf9f6; border-radius: 10px; padding: 12px; margin-bottom: 14px; }
+.info-cell-label { font-size: 10px; color: #aaa; margin-bottom: 3px; }
+.info-cell-value { font-size: 12px; font-weight: 600; color: #1a1a1a; }
+
+/* ── 알림 배너 ── */
+.notice { display: flex; align-items: flex-start; gap: 8px; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 12px; }
+.notice svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 1px; }
+.notice-warn { background: #fef9ed; color: #854f0b; border: 1px solid #fce5b2; }
+.notice-info { background: #e8f1fb; color: #1558a0; border: 1px solid #c5dcf5; }
+
+/* ── 로그인 카드 ── */
+.login-card { background: #fff; border-radius: 16px; padding: 32px; width: 100%; max-width: 380px; box-shadow: 0 4px 24px rgba(0,0,0,.08); }
+.login-logo { font-size: 20px; font-weight: 800; color: #1a1a1a; margin-bottom: 4px; }
+.login-sub { font-size: 13px; color: #888; margin-bottom: 28px; }
+.login-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.login-desc { font-size: 12px; color: #888; margin-bottom: 20px; }
+.error-msg { font-size: 12px; color: #9b2424; margin-top: 8px; text-align: center; min-height: 18px; }
+
+/* ── 빈 상태 ── */
+.empty-state { text-align: center; padding: 60px 20px; color: #aaa; }
+.empty-state svg { width: 40px; height: 40px; margin: 0 auto 12px; opacity: .4; display: block; }
+.empty-state p { font-size: 13px; }
+
+/* ── 하단 네비 (모바일) ── */
+.bottom-nav { display: none; background: #fff; border-top: 1px solid #eeede8; padding-bottom: env(safe-area-inset-bottom); }
+.bn-inner { display: flex; }
+.bn-item { flex: 1; padding: 10px 4px 8px; text-align: center; font-size: 10px; color: #aaa; cursor: pointer; transition: color .12s; }
+.bn-item svg { width: 20px; height: 20px; margin: 0 auto 3px; display: block; }
+.bn-item.active { color: #1a1a1a; font-weight: 600; }
+.bn-item span { display: block; }
+
+/* ── 반응형 ── */
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .mobile-topbar { display: flex; }
+  .bottom-nav { display: block; }
+  .page { padding: 16px 14px 80px; }
+  .metric-grid { grid-template-columns: repeat(2, 1fr); }
+  .home-stat-grid { grid-template-columns: repeat(3, 1fr); }
+  .data-table { display: none; }
+  .req-list { display: block; }
+  .table-wrap { background: transparent; border: none; }
+  .filter-spacer { display: none; }
+}
+@media (max-width: 480px) {
+  body { background: #fff; }
+  .page { padding: 12px 12px 90px; }
+  .metric-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .metric-n { font-size: 22px; }
+  .home-action-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .modal { max-height: 100vh; border-radius: 0; max-width: 100%; }
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .main-content { background: #fff; }
+}
+
+/* ── 로딩 스피너 ── */
+.spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid #ddd; border-top-color: #1a1a1a; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── 구분선 ── */
+.divider { border: none; border-top: 1px solid #f0efe9; margin: 14px 0; }
+
+/* ── 텍스트 유틸 ── */
+.text-muted { color: #888; }
+.text-sm { font-size: 12px; }
+.fw-600 { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════
+  로그인 화면
+════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <p class="login-logo">요청접수현황</p>
+    <p class="login-sub">유지보수 요청 관리 시스템</p>
+    <p class="login-title">로그인</p>
+    <p class="login-desc">담당자가 제공한 계정으로 접속하세요</p>
+    <div class="form-group">
+      <label class="form-label">이메일</label>
+      <input id="login-email" class="form-input" type="email" placeholder="이메일 주소" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label class="form-label">비밀번호</label>
+      <input id="login-pw" class="form-input" type="password" placeholder="비밀번호" autocomplete="current-password">
+    </div>
+    <button id="login-btn" class="btn btn-primary" style="width:100%;padding:12px;font-size:14px;justify-content:center;">
+      로그인
+    </button>
+    <p id="login-error" class="error-msg"></p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+  앱 셸
+════════════════════════════════════════ -->
+<div id="app-shell">
+
+  <!-- 모바일 상단바 -->
+  <div class="mobile-topbar">
+    <div>
+      <p class="mt-title" id="mt-title">요청접수현황</p>
+    </div>
+    <div class="mt-right">
+      <span id="mobile-role-badge"></span>
+      <button id="mobile-logout" class="btn" style="padding:5px 12px;font-size:12px;">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="app-layout">
+
+    <!-- 사이드바 -->
+    <nav class="sidebar">
+      <p class="sb-logo">요청접수현황</p>
+      <p class="sb-sub" id="sb-sub">시스템</p>
+
+      <!-- 관리자 메뉴 -->
+      <div id="admin-menu" style="display:none">
+        <p class="sb-section">관리</p>
+        <div class="sb-item active" data-page="admin-dashboard" onclick="navTo('admin-dashboard',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          전체 대시보드
+        </div>
+        <div class="sb-item" data-page="admin-requests" onclick="navTo('admin-requests',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+          요청 목록 <span id="sb-badge" class="sb-badge" style="display:none">0</span>
+        </div>
+        <div class="sb-item" data-page="admin-clients" onclick="navTo('admin-clients',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          고객사 관리
+        </div>
+        <p class="sb-section">계정</p>
+        <div class="sb-item" data-page="admin-users" onclick="navTo('admin-users',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          사용자 관리
+        </div>
+      </div>
+
+      <!-- 고객 메뉴 -->
+      <div id="client-menu" style="display:none">
+        <p class="sb-section">메뉴</p>
+        <div class="sb-item active" data-page="client-home" onclick="navTo('client-home',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          홈
+        </div>
+        <div class="sb-item" data-page="new-request" onclick="navTo('new-request',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          새 요청 등록
+        </div>
+        <div class="sb-item" data-page="client-requests" onclick="navTo('client-requests',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+          내 요청 현황
+        </div>
+      </div>
+
+      <div class="sb-user">
+        <div class="sb-avatar" id="sb-avatar"></div>
+        <div style="min-width:0">
+          <p class="sb-uname" id="sb-uname"></p>
+          <p class="sb-uemail" id="sb-uemail" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></p>
+          <p class="sb-logout" onclick="signOut()">로그아웃</p>
+        </div>
+      </div>
+    </nav>
+
+    <!-- 메인 콘텐츠 -->
+    <div class="main-content" id="main-content">
+
+      <!-- ── 관리자: 대시보드 ── -->
+      <div class="page" id="page-admin-dashboard">
+        <div class="page-header">
+          <div>
+            <p class="page-title">전체 대시보드</p>
+            <p class="page-sub" id="dashboard-sub">모든 고객사 요청 현황</p>
+          </div>
+          <span class="chip chip-purple">관리자</span>
+        </div>
+        <div class="metric-grid">
+          <div class="metric-box"><p class="metric-n" id="m-total">0</p><p class="metric-l">전체</p></div>
+          <div class="metric-box"><p class="metric-n" style="color:#1558a0" id="m-new">0</p><p class="metric-l">접수</p></div>
+          <div class="metric-box"><p class="metric-n" style="color:#7a4a0a" id="m-progress">0</p><p class="metric-l">처리중</p></div>
+          <div class="metric-box"><p class="metric-n" style="color:#2d6010" id="m-done">0</p><p class="metric-l">완료</p></div>
+        </div>
+        <div class="filter-bar" id="admin-filter-bar">
+          <span class="filter-chip active" data-filter="all" onclick="filterRequests('all',this)">전체</span>
+          <span class="filter-chip" data-filter="접수" onclick="filterRequests('접수',this)">접수</span>
+          <span class="filter-chip" data-filter="처리중" onclick="filterRequests('처리중',this)">처리중</span>
+          <span class="filter-chip" data-filter="완료" onclick="filterRequests('완료',this)">완료</span>
+          <span class="filter-chip" data-filter="보류" onclick="filterRequests('보류',this)">보류</span>
+          <span class="filter-spacer"></span>
+          <select id="client-filter" class="form-input select-input" style="width:130px;font-size:12px;padding:5px 28px 5px 10px;" onchange="filterByClient(this.value)">
+            <option value="all">전체 고객사</option>
+          </select>
+        </div>
+        <!-- 테이블 (데스크탑) -->
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>제목</th>
+                <th>고객사</th>
+                <th>유형</th>
+                <th>우선순위</th>
+                <th>접수일</th>
+                <th>경과</th>
+                <th>희망완료</th>
+                <th>상태</th>
+              </tr>
+            </thead>
+            <tbody id="admin-table-body"></tbody>
+          </table>
+          <!-- 카드 (모바일) -->
+          <div id="admin-card-list" class="req-list"></div>
+        </div>
+        <div id="admin-empty" class="empty-state" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+          <p>요청이 없습니다</p>
+        </div>
+      </div>
+
+      <!-- ── 관리자: 요청 목록 (대시보드와 동일 레이아웃) ── -->
+      <div class="page" id="page-admin-requests">
+        <div class="page-header">
+          <div><p class="page-title">전체 요청 목록</p></div>
+        </div>
+        <div class="filter-bar">
+          <span class="filter-chip active" onclick="filterRequests2('all',this)">전체</span>
+          <span class="filter-chip" onclick="filterRequests2('접수',this)">접수</span>
+          <span class="filter-chip" onclick="filterRequests2('처리중',this)">처리중</span>
+          <span class="filter-chip" onclick="filterRequests2('완료',this)">완료</span>
+          <span class="filter-chip" onclick="filterRequests2('보류',this)">보류</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>제목</th><th>고객사</th><th>유형</th><th>우선순위</th><th>접수일</th><th>경과</th><th>희망완료</th><th>상태</th></tr></thead>
+            <tbody id="admin-table-body2"></tbody>
+          </table>
+          <div id="admin-card-list2" class="req-list"></div>
+        </div>
+        <div id="admin-empty2" class="empty-state" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+          <p>요청이 없습니다</p>
+        </div>
+      </div>
+
+      <!-- ── 관리자: 고객사 관리 ── -->
+      <div class="page" id="page-admin-clients">
+        <div class="page-header">
+          <div><p class="page-title">고객사 관리</p></div>
+          <button class="btn btn-primary" onclick="openClientModal()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            고객사 추가
+          </button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>고객사명</th><th>등록일</th><th>요청 건수</th><th></th></tr></thead>
+            <tbody id="clients-table-body"></tbody>
+          </table>
+        </div>
+        <div id="clients-empty" class="empty-state" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          <p>등록된 고객사가 없습니다</p>
+        </div>
+      </div>
+
+      <!-- ── 관리자: 사용자 관리 ── -->
+      <div class="page" id="page-admin-users">
+        <div class="page-header">
+          <div><p class="page-title">사용자 관리</p><p class="page-sub">Firestore에서 역할을 관리합니다</p></div>
+          <button class="btn btn-primary" onclick="openUserModal()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            사용자 프로필 추가
+          </button>
+        </div>
+        <div class="notice notice-info">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          실제 계정 생성은 Firebase Console → Authentication에서 하세요. 여기서는 역할(role)과 고객사를 연결합니다.
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>이메일</th><th>이름</th><th>역할</th><th>고객사</th><th>등록일</th><th></th></tr></thead>
+            <tbody id="users-table-body"></tbody>
+          </table>
+        </div>
+        <div id="users-empty" class="empty-state" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          <p>등록된 사용자가 없습니다</p>
+        </div>
+      </div>
+
+      <!-- ── 고객: 홈 ── -->
+      <div class="page" id="page-client-home">
+        <div class="page-header">
+          <div>
+            <p class="page-title" id="client-greeting">안녕하세요</p>
+            <p class="page-sub" id="client-email-sub"></p>
+          </div>
+          <button class="btn btn-primary" onclick="navTo('new-request', null)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            새 요청
+          </button>
+        </div>
+        <div class="home-stat-grid">
+          <div class="metric-box"><p class="metric-n" style="color:#1558a0" id="c-m-new">0</p><p class="metric-l">접수</p></div>
+          <div class="metric-box"><p class="metric-n" style="color:#7a4a0a" id="c-m-progress">0</p><p class="metric-l">처리중</p></div>
+          <div class="metric-box"><p class="metric-n" style="color:#2d6010" id="c-m-done">0</p><p class="metric-l">완료</p></div>
+        </div>
+        <div class="home-action-grid">
+          <div class="home-action-card" onclick="navTo('new-request', null)">
+            <div class="ha-icon" style="background:#e8f1fb">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#1558a0" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            </div>
+            <p class="ha-title">새 요청 등록</p>
+            <p class="ha-sub">오류, 기능요청, 문의</p>
+          </div>
+          <div class="home-action-card" onclick="navTo('client-requests', null)">
+            <div class="ha-icon" style="background:#e6f2de">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#2d6010" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+            </div>
+            <p class="ha-title">내 요청 현황</p>
+            <p class="ha-sub" id="client-req-summary">전체 0건</p>
+          </div>
+        </div>
+        <p class="card-title" style="margin-bottom:10px">최근 요청</p>
+        <div id="client-recent-list"></div>
+        <div id="client-recent-empty" class="empty-state" style="display:none;padding:30px 20px">
+          <p>아직 등록된 요청이 없습니다</p>
+        </div>
+      </div>
+
+      <!-- ── 고객: 요청 목록 ── -->
+      <div class="page" id="page-client-requests">
+        <div class="page-header">
+          <div><p class="page-title">내 요청 현황</p><p class="page-sub" id="client-req-count-sub"></p></div>
+          <button class="btn btn-primary" onclick="navTo('new-request', null)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            새 요청
+          </button>
+        </div>
+        <div class="filter-bar">
+          <span class="filter-chip active" onclick="filterClientReqs('all',this)">전체</span>
+          <span class="filter-chip" onclick="filterClientReqs('접수',this)">접수</span>
+          <span class="filter-chip" onclick="filterClientReqs('처리중',this)">처리중</span>
+          <span class="filter-chip" onclick="filterClientReqs('완료',this)">완료</span>
+          <span class="filter-chip" onclick="filterClientReqs('보류',this)">보류</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>제목</th><th>유형</th><th>우선순위</th><th>접수일</th><th>경과</th><th>희망완료</th><th>상태</th></tr></thead>
+            <tbody id="client-table-body"></tbody>
+          </table>
+          <div id="client-card-list" class="req-list"></div>
+        </div>
+        <div id="client-empty" class="empty-state" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+          <p>요청이 없습니다</p>
+        </div>
+      </div>
+
+      <!-- ── 새 요청 등록 ── -->
+      <div class="page" id="page-new-request">
+        <div class="page-header">
+          <div><p class="page-title">새 요청 등록</p></div>
+        </div>
+        <div class="card" style="max-width:560px">
+          <div class="form-group">
+            <label class="form-label">요청 유형</label>
+            <select id="req-type" class="form-input select-input">
+              <option>오류/버그</option>
+              <option>기능요청</option>
+              <option>문의</option>
+              <option>기타</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">우선순위</label>
+            <select id="req-priority" class="form-input select-input">
+              <option>긴급</option>
+              <option selected>일반</option>
+              <option>낮음</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">제목</label>
+            <input id="req-title" class="form-input" type="text" placeholder="요청 내용을 간략히 적어주세요">
+          </div>
+          <div class="form-group">
+            <label class="form-label">상세 내용</label>
+            <textarea id="req-content" class="form-input textarea" placeholder="증상, 발생 환경, 재현 방법 등 상세하게 적어주세요"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">희망 완료 예정일 <span class="optional">선택</span></label>
+            <input id="req-due" class="form-input" type="date">
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn" onclick="navTo('client-requests', null)" style="flex:1;justify-content:center">취소</button>
+            <button id="req-submit-btn" class="btn btn-primary" onclick="submitRequest()" style="flex:2;justify-content:center">요청 등록하기</button>
+          </div>
+          <p id="req-error" class="error-msg" style="text-align:left;margin-top:8px"></p>
+        </div>
+      </div>
+
+    </div><!-- /main-content -->
+  </div><!-- /app-layout -->
+
+  <!-- 하단 네비 (모바일) -->
+  <div class="bottom-nav" id="bottom-nav">
+    <div class="bn-inner" id="bn-admin" style="display:none">
+      <div class="bn-item active" onclick="navTo('admin-dashboard',null)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        <span>대시보드</span>
+      </div>
+      <div class="bn-item" onclick="navTo('admin-requests',null)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+        <span>요청목록</span>
+      </div>
+      <div class="bn-item" onclick="navTo('admin-clients',null)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        <span>고객사</span>
+      </div>
+      <div class="bn-item" onclick="navTo('admin-users',null)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        <span>사용자</span>
+      </div>
+    </div>
+    <div class="bn-inner" id="bn-client" style="display:none">
+      <div class="bn-item active" onclick="navTo('client-home',null)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        <span>홈</span>
+      </div>
+      <div class="bn-item" onclick="navTo('new-request',null)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        <span>요청등록</span>
+      </div>
+      <div class="bn-item" onclick="navTo('client-requests',null)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+        <span>내 요청</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app-shell -->
+
+
+<!-- ════════════════════════════════════════
+  모달: 요청 상세
+════════════════════════════════════════ -->
+<div class="modal-overlay" id="req-detail-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div style="flex:1">
+        <div id="detail-tags" style="margin-bottom:6px"></div>
+        <p class="modal-title" id="detail-title"></p>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span id="detail-status-chip"></span>
+        <button class="modal-close" onclick="closeModal('req-detail-modal')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="info-grid">
+        <div><p class="info-cell-label">접수일</p><p class="info-cell-value" id="detail-created"></p></div>
+        <div><p class="info-cell-label">경과</p><p class="info-cell-value" id="detail-elapsed"></p></div>
+        <div><p class="info-cell-label">희망 완료일</p><p class="info-cell-value" id="detail-due"></p></div>
+      </div>
+      <p style="font-size:13px;color:#444;line-height:1.7;margin-bottom:16px" id="detail-content"></p>
+      <hr class="divider">
+      <p class="card-title" style="margin-bottom:10px">처리 이력</p>
+      <div class="timeline" id="detail-timeline"></div>
+
+      <!-- 관리자 전용: 상태 변경 -->
+      <div id="admin-action-area" style="display:none">
+        <hr class="divider">
+        <p class="card-title" style="margin-bottom:10px">처리 메모 추가</p>
+        <div class="form-group">
+          <select id="detail-new-status" class="form-input select-input" style="margin-bottom:10px">
+            <option value="">상태 유지</option>
+            <option value="접수">접수</option>
+            <option value="처리중">처리중</option>
+            <option value="완료">완료</option>
+            <option value="보류">보류</option>
+          </select>
+          <textarea id="detail-memo" class="form-input textarea" placeholder="처리 내용, 진행 상황을 입력하세요..." style="min-height:70px"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('req-detail-modal')">닫기</button>
+      <button id="detail-save-btn" class="btn btn-primary" onclick="saveDetailUpdate()" style="display:none">저장</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════
+  모달: 고객사 추가
+════════════════════════════════════════ -->
+<div class="modal-overlay" id="client-modal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <p class="modal-title">고객사 추가</p>
+      <button class="modal-close" onclick="closeModal('client-modal')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">고객사명</label>
+        <input id="new-client-name" class="form-input" type="text" placeholder="예: A주식회사">
+      </div>
+      <p id="client-modal-error" class="error-msg" style="text-align:left"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('client-modal')">취소</button>
+      <button class="btn btn-primary" onclick="saveClient()">추가</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════
+  모달: 사용자 프로필 추가
+════════════════════════════════════════ -->
+<div class="modal-overlay" id="user-modal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <p class="modal-title">사용자 프로필 추가</p>
+      <button class="modal-close" onclick="closeModal('user-modal')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="notice notice-warn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Firebase Auth 계정을 먼저 만든 후, 여기서 역할과 고객사를 연결하세요.
+      </div>
+      <div class="form-group">
+        <label class="form-label">이메일 (Firebase Auth 계정과 동일)</label>
+        <input id="new-user-email" class="form-input" type="email" placeholder="client@company.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">이름</label>
+        <input id="new-user-name" class="form-input" type="text" placeholder="담당자 이름">
+      </div>
+      <div class="form-group">
+        <label class="form-label">역할</label>
+        <select id="new-user-role" class="form-input select-input" onchange="toggleClientSelect()">
+          <option value="client">일반 사용자 (client)</option>
+          <option value="admin">관리자 (admin)</option>
+        </select>
+      </div>
+      <div class="form-group" id="client-select-group">
+        <label class="form-label">고객사</label>
+        <select id="new-user-client" class="form-input select-input"></select>
+      </div>
+      <p id="user-modal-error" class="error-msg" style="text-align:left"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('user-modal')">취소</button>
+      <button class="btn btn-primary" onclick="saveUserProfile()">추가</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════
+  Firebase + 앱 로직
+════════════════════════════════════════ -->
+<script>
+// ── Firebase 설정 ──────────────────────────────────────
+// ⚠️ Firebase 콘솔에서 프로젝트 설정 → 앱 추가 → 아래 값으로 교체하세요
+const firebaseConfig = {
+    apiKey: "AIzaSyCN_D2wyy7h3WDnS6M2PJ5t1VMehOjnR0g",
+    authDomain: "request-4888e.firebaseapp.com",
+    projectId: "request-4888e",
+    storageBucket: "request-4888e.firebasestorage.app",
+    messagingSenderId: "23302424642",
+    appId: "1:23302424642:web:73a4d69233cae507ad85db",
+    measurementId: "G-NCGWTY1NP4"
+  };
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ── 전역 상태 ──────────────────────────────────────────
+let currentUser    = null;
+let userProfile    = null;
+let allRequests    = [];
+let clientsMap     = {};       // clientId → name
+let unsubRequests  = null;
+let currentReqFilter = 'all';
+let currentClientFilter = 'all';
+let currentDetailId = null;
+
+// ── 유틸 ───────────────────────────────────────────────
+const STATUS_CHIP = {
+  '접수':   'chip-blue',
+  '처리중': 'chip-amber',
+  '완료':   'chip-green',
+  '보류':   'chip-gray'
+};
+const STATUS_DOT = {
+  '접수':   '#1558a0',
+  '처리중': '#7a4a0a',
+  '완료':   '#2d6010',
+  '보류':   '#888'
+};
+const TYPE_TAG = {
+  '오류/버그': 'tag-blue',
+  '기능요청':  'tag-purple',
+  '문의':      'tag-green',
+  '기타':      'tag-amber'
+};
+const PRIORITY_CHIP = {
+  '긴급': 'chip-red',
+  '일반': 'chip-gray',
+  '낮음': 'chip-gray'
+};
+
+function fmtDate(ts) {
+  if (!ts) return '—';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+}
+function fmtDateShort(ts) {
+  if (!ts) return '—';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return `${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+}
+function daysElapsed(ts) {
+  if (!ts) return 0;
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+function dayBadgeHtml(ts) {
+  const n = daysElapsed(ts);
+  const cls = n <= 1 ? 'day-danger' : n <= 3 ? 'day-warn' : 'day-ok';
+  return `<span class="day-badge ${cls}">D+${n}</span>`;
+}
+function chipHtml(status) {
+  return `<span class="chip ${STATUS_CHIP[status]||'chip-gray'}">${status}</span>`;
+}
+function tagHtml(type) {
+  return `<span class="tag ${TYPE_TAG[type]||'tag-amber'}">${type}</span>`;
+}
+function initials(name) {
+  if (!name) return '?';
+  return name.length >= 2 ? name.slice(0,2) : name;
+}
+
+// ── 인증 ───────────────────────────────────────────────
+auth.onAuthStateChanged(async user => {
+  if (user) {
+    currentUser = user;
+    const snap = await db.collection('users').doc(user.uid).get();
+    if (!snap.exists) {
+      await auth.signOut();
+      showError('등록되지 않은 계정입니다. 관리자에게 문의하세요.');
+      return;
+    }
+    userProfile = { id: snap.id, ...snap.data() };
+    initApp();
+  } else {
+    currentUser = null;
+    userProfile = null;
+    showLoginScreen();
+  }
+});
+
+document.getElementById('login-btn').addEventListener('click', async () => {
+  const email = document.getElementById('login-email').value.trim();
+  const pw    = document.getElementById('login-pw').value;
+  const btn   = document.getElementById('login-btn');
+  if (!email || !pw) { showError('이메일과 비밀번호를 입력하세요.'); return; }
+  btn.innerHTML = '<span class="spinner"></span>';
+  btn.disabled = true;
+  try {
+    await auth.signInWithEmailAndPassword(email, pw);
+  } catch(e) {
+    const msg = e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found'
+      ? '이메일 또는 비밀번호가 올바르지 않습니다.'
+      : '로그인 중 오류가 발생했습니다.';
+    showError(msg);
+    btn.innerHTML = '로그인';
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('login-email').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('login-pw').focus(); });
+document.getElementById('login-pw').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('login-btn').click(); });
+
+function showError(msg) { document.getElementById('login-error').textContent = msg; }
+function showLoginScreen() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-shell').classList.remove('visible');
+  document.getElementById('login-btn').innerHTML = '로그인';
+  document.getElementById('login-btn').disabled = false;
+  document.getElementById('login-error').textContent = '';
+}
+
+async function signOut() {
+  if (unsubRequests) { unsubRequests(); unsubRequests = null; }
+  await auth.signOut();
+}
+document.getElementById('mobile-logout').addEventListener('click', signOut);
+
+// ── 앱 초기화 ──────────────────────────────────────────
+async function initApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-shell').classList.add('visible');
+
+  const isAdmin = userProfile.role === 'admin';
+  const name    = userProfile.name || userProfile.email.split('@')[0];
+
+  // 사이드바 정보
+  document.getElementById('sb-uname').textContent  = name;
+  document.getElementById('sb-uemail').textContent  = userProfile.email;
+  document.getElementById('sb-sub').textContent     = isAdmin ? '관리자 모드' : (userProfile.clientName || '');
+  const av = document.getElementById('sb-avatar');
+  av.textContent = initials(name);
+  av.style.background = isAdmin ? '#eeedfd' : '#e6f2de';
+  av.style.color      = isAdmin ? '#3d359e' : '#2d6010';
+
+  // 모바일 배지
+  document.getElementById('mobile-role-badge').innerHTML = isAdmin
+    ? '<span class="chip chip-purple" style="font-size:10px">관리자</span>'
+    : '<span class="chip chip-green" style="font-size:10px">'+( userProfile.clientName||'고객')+'</span>';
+
+  // 메뉴 표시
+  document.getElementById('admin-menu').style.display  = isAdmin ? '' : 'none';
+  document.getElementById('client-menu').style.display = isAdmin ? 'none' : '';
+  document.getElementById('bn-admin').style.display    = isAdmin ? '' : 'none';
+  document.getElementById('bn-client').style.display   = isAdmin ? 'none' : '';
+
+  // 고객사 목록 로드
+  await loadClients();
+
+  if (isAdmin) {
+    subscribeAllRequests();
+    navTo('admin-dashboard', document.querySelector('#admin-menu .sb-item'));
+  } else {
+    document.getElementById('client-greeting').textContent = `안녕하세요, ${userProfile.clientName || name}`;
+    document.getElementById('client-email-sub').textContent = userProfile.email;
+    subscribeClientRequests();
+    navTo('client-home', document.querySelector('#client-menu .sb-item'));
+  }
+}
+
+// ── 네비게이션 ─────────────────────────────────────────
+function navTo(pageKey, clickedEl) {
+  // 페이지 전환
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const page = document.getElementById('page-' + pageKey);
+  if (page) page.classList.add('active');
+
+  // 사이드바 활성화
+  if (clickedEl) {
+    document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+    clickedEl.classList.add('active');
+  } else {
+    document.querySelectorAll('.sb-item').forEach(i => {
+      i.classList.toggle('active', i.dataset.page === pageKey);
+    });
+  }
+
+  // 모바일 하단탭 활성화
+  document.querySelectorAll('.bn-item').forEach(i => i.classList.remove('active'));
+  const pageMap = {
+    'admin-dashboard': 0, 'admin-requests': 1, 'admin-clients': 2, 'admin-users': 3,
+    'client-home': 0, 'new-request': 1, 'client-requests': 2
+  };
+  const isAdmin = userProfile && userProfile.role === 'admin';
+  const bnItems = document.querySelectorAll(isAdmin ? '#bn-admin .bn-item' : '#bn-client .bn-item');
+  if (pageMap[pageKey] !== undefined && bnItems[pageMap[pageKey]]) {
+    bnItems[pageMap[pageKey]].classList.add('active');
+  }
+
+  // 모바일 상단 타이틀
+  const titles = {
+    'admin-dashboard': '전체 대시보드', 'admin-requests': '요청 목록',
+    'admin-clients': '고객사 관리', 'admin-users': '사용자 관리',
+    'client-home': '요청접수현황', 'client-requests': '내 요청 현황', 'new-request': '새 요청 등록'
+  };
+  document.getElementById('mt-title').textContent = titles[pageKey] || '요청접수현황';
+
+  // 스크롤 상단
+  document.getElementById('main-content').scrollTop = 0;
+}
+
+// ── 고객사 로드 ────────────────────────────────────────
+async function loadClients() {
+  const snap = await db.collection('clients').orderBy('name').get();
+  clientsMap = {};
+  snap.forEach(d => { clientsMap[d.id] = d.data().name; });
+
+  // 클라이언트 필터 셀렉트 업데이트
+  const sel = document.getElementById('client-filter');
+  sel.innerHTML = '<option value="all">전체 고객사</option>';
+  Object.entries(clientsMap).forEach(([id, name]) => {
+    sel.innerHTML += `<option value="${id}">${name}</option>`;
+  });
+
+  // 고객사 테이블 렌더
+  renderClientsTable();
+
+  // 사용자 모달 고객사 셀렉트
+  const usel = document.getElementById('new-user-client');
+  usel.innerHTML = '<option value="">고객사 선택</option>';
+  Object.entries(clientsMap).forEach(([id, name]) => {
+    usel.innerHTML += `<option value="${id}">${name}</option>`;
+  });
+}
+
+function renderClientsTable() {
+  const tbody = document.getElementById('clients-table-body');
+  const empty = document.getElementById('clients-empty');
+  const entries = Object.entries(clientsMap);
+  if (entries.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = entries.map(([id, name]) => {
+    const count = allRequests.filter(r => r.clientId === id).length;
+    return `<tr>
+      <td class="fw-600">${name}</td>
+      <td class="text-muted text-sm">—</td>
+      <td>${count}건</td>
+      <td><button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="deleteClient('${id}','${name}')">삭제</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function saveClient() {
+  const name = document.getElementById('new-client-name').value.trim();
+  if (!name) { document.getElementById('client-modal-error').textContent = '고객사명을 입력하세요.'; return; }
+  await db.collection('clients').add({ name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  document.getElementById('new-client-name').value = '';
+  closeModal('client-modal');
+  await loadClients();
+}
+
+async function deleteClient(id, name) {
+  if (!confirm(`"${name}" 고객사를 삭제하시겠습니까?`)) return;
+  await db.collection('clients').doc(id).delete();
+  await loadClients();
+}
+
+function openClientModal() {
+  document.getElementById('new-client-name').value = '';
+  document.getElementById('client-modal-error').textContent = '';
+  openModal('client-modal');
+}
+
+// ── 사용자 관리 ────────────────────────────────────────
+async function loadUsers() {
+  const snap = await db.collection('users').orderBy('email').get();
+  const tbody = document.getElementById('users-table-body');
+  const empty = document.getElementById('users-empty');
+  if (snap.empty) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = snap.docs.map(d => {
+    const u = d.data();
+    const clientName = u.clientId ? (clientsMap[u.clientId] || u.clientId) : '—';
+    const roleBadge = u.role === 'admin'
+      ? '<span class="chip chip-purple">관리자</span>'
+      : '<span class="chip chip-blue">일반사용자</span>';
+    return `<tr>
+      <td class="text-sm">${u.email}</td>
+      <td>${u.name || '—'}</td>
+      <td>${roleBadge}</td>
+      <td class="text-sm">${clientName}</td>
+      <td class="text-muted text-sm">${u.createdAt ? fmtDate(u.createdAt) : '—'}</td>
+      <td><button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="deleteUserProfile('${d.id}')">삭제</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function openUserModal() {
+  document.getElementById('new-user-email').value = '';
+  document.getElementById('new-user-name').value  = '';
+  document.getElementById('new-user-role').value  = 'client';
+  document.getElementById('user-modal-error').textContent = '';
+  toggleClientSelect();
+  openModal('user-modal');
+}
+
+function toggleClientSelect() {
+  const role = document.getElementById('new-user-role').value;
+  document.getElementById('client-select-group').style.display = role === 'client' ? '' : 'none';
+}
+
+async function saveUserProfile() {
+  const email    = document.getElementById('new-user-email').value.trim();
+  const name     = document.getElementById('new-user-name').value.trim();
+  const role     = document.getElementById('new-user-role').value;
+  const clientId = document.getElementById('new-user-client').value;
+  if (!email) { document.getElementById('user-modal-error').textContent = '이메일을 입력하세요.'; return; }
+  if (role === 'client' && !clientId) { document.getElementById('user-modal-error').textContent = '고객사를 선택하세요.'; return; }
+  const data = {
+    email, name, role,
+    clientId:   role === 'client' ? clientId : null,
+    clientName: role === 'client' ? (clientsMap[clientId]||'') : null,
+    createdAt:  firebase.firestore.FieldValue.serverTimestamp()
+  };
+  // uid를 이메일로 검색할 수 없으므로 이메일을 doc ID로 사용
+  await db.collection('users').doc(email.replace(/\./g,'_')).set(data);
+  closeModal('user-modal');
+  loadUsers();
+}
+
+async function deleteUserProfile(docId) {
+  if (!confirm('사용자 프로필을 삭제하시겠습니까?')) return;
+  await db.collection('users').doc(docId).delete();
+  loadUsers();
+}
+
+// 사용자 관리 페이지 진입 시 로드
+document.querySelector('[data-page="admin-users"]').addEventListener('click', loadUsers);
+
+// ── 요청 구독 (관리자) ────────────────────────────────
+function subscribeAllRequests() {
+  if (unsubRequests) unsubRequests();
+  unsubRequests = db.collection('requests')
+    .orderBy('createdAt', 'desc')
+    .onSnapshot(snap => {
+      allRequests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      updateMetrics();
+      renderAdminTable();
+      renderClientsTable();
+      updateBadge();
+    });
+}
+
+function updateMetrics() {
+  const filtered = applyFilters(allRequests);
+  document.getElementById('m-total').textContent    = allRequests.length;
+  document.getElementById('m-new').textContent      = allRequests.filter(r=>r.status==='접수').length;
+  document.getElementById('m-progress').textContent = allRequests.filter(r=>r.status==='처리중').length;
+  document.getElementById('m-done').textContent     = allRequests.filter(r=>r.status==='완료').length;
+}
+
+function updateBadge() {
+  const pending = allRequests.filter(r => r.status === '접수' || r.status === '처리중').length;
+  const badge = document.getElementById('sb-badge');
+  badge.textContent = pending;
+  badge.style.display = pending > 0 ? '' : 'none';
+}
+
+function applyFilters(list) {
+  return list.filter(r => {
+    const statusOk = currentReqFilter === 'all' || r.status === currentReqFilter;
+    const clientOk = currentClientFilter === 'all' || r.clientId === currentClientFilter;
+    return statusOk && clientOk;
+  });
+}
+
+function filterRequests(status, el) {
+  currentReqFilter = status;
+  document.querySelectorAll('#admin-filter-bar .filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderAdminTable();
+}
+function filterByClient(val) {
+  currentClientFilter = val;
+  renderAdminTable();
+}
+function filterRequests2(status, el) {
+  el.closest('.filter-bar').querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const filtered = status === 'all' ? allRequests : allRequests.filter(r => r.status === status);
+  renderTable('admin-table-body2', 'admin-card-list2', 'admin-empty2', filtered, true);
+}
+
+function renderAdminTable() {
+  const filtered = applyFilters(allRequests);
+  renderTable('admin-table-body', 'admin-card-list', 'admin-empty', filtered, true);
+}
+
+function renderTable(tbodyId, cardId, emptyId, list, isAdmin) {
+  const tbody = document.getElementById(tbodyId);
+  const cards = document.getElementById(cardId);
+  const empty = document.getElementById(emptyId);
+  if (list.length === 0) {
+    tbody.innerHTML = ''; cards.innerHTML = ''; empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  // 테이블 (데스크탑)
+  tbody.innerHTML = list.map(r => {
+    const due = r.dueDate ? fmtDateShort({ toDate: () => new Date(r.dueDate) }) : '—';
+    return `<tr onclick="openReqDetail('${r.id}')">
+      <td class="td-title"><p title="${r.title}">${r.title}</p>${isAdmin?`<p class="td-meta">${r.clientName||''}</p>`:''}</td>
+      ${isAdmin?`<td>${tagHtml(r.clientName||'')}</td>`:''}
+      <td>${tagHtml(r.type)}</td>
+      <td><span class="chip ${PRIORITY_CHIP[r.priority]||'chip-gray'}">${r.priority}</span></td>
+      <td class="text-muted text-sm">${fmtDateShort(r.createdAt)}</td>
+      <td>${r.status!=='완료'?dayBadgeHtml(r.createdAt):'<span class="text-muted text-sm">완료</span>'}</td>
+      <td class="text-muted text-sm">${due}</td>
+      <td>${chipHtml(r.status)}</td>
+    </tr>`;
+  }).join('');
+  // 카드 (모바일)
+  cards.innerHTML = list.map(r => `
+    <div class="req-card" onclick="openReqDetail('${r.id}')">
+      <div class="req-card-top">
+        <span class="req-card-title">${r.title}</span>
+        ${chipHtml(r.status)}
+      </div>
+      <div class="req-card-meta">
+        ${isAdmin?`<span class="tag ${TYPE_TAG[r.clientName]||'tag-green'}" style="background:#e6f2de;color:#2d6010">${r.clientName||''}</span>`:''}
+        ${tagHtml(r.type)}
+        <span>${fmtDateShort(r.createdAt)} 접수</span>
+        ${r.status!=='완료'?dayBadgeHtml(r.createdAt):''}
+        ${r.dueDate?`<span class="text-muted">희망 ${fmtDateShort({toDate:()=>new Date(r.dueDate)})}</span>`:''}
+      </div>
+    </div>`).join('');
+}
+
+// ── 요청 구독 (고객) ──────────────────────────────────
+function subscribeClientRequests() {
+  if (unsubRequests) unsubRequests();
+  unsubRequests = db.collection('requests')
+    .where('clientId', '==', userProfile.clientId)
+    .orderBy('createdAt', 'desc')
+    .onSnapshot(snap => {
+      allRequests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderClientHome();
+      renderClientTable();
+    });
+}
+
+function renderClientHome() {
+  const newC  = allRequests.filter(r=>r.status==='접수').length;
+  const progC = allRequests.filter(r=>r.status==='처리중').length;
+  const doneC = allRequests.filter(r=>r.status==='완료').length;
+  document.getElementById('c-m-new').textContent      = newC;
+  document.getElementById('c-m-progress').textContent = progC;
+  document.getElementById('c-m-done').textContent     = doneC;
+  const open = newC + progC;
+  document.getElementById('client-req-count-sub').textContent  = `총 ${allRequests.length}건`;
+  document.getElementById('client-req-summary').textContent    = `전체 ${allRequests.length}건 · 미완료 ${open}건`;
+
+  // 최근 3건
+  const recent = allRequests.slice(0, 3);
+  const list   = document.getElementById('client-recent-list');
+  const empty  = document.getElementById('client-recent-empty');
+  if (recent.length === 0) { list.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  list.innerHTML = recent.map(r => `
+    <div class="req-card" onclick="openReqDetail('${r.id}')">
+      <div class="req-card-top"><span class="req-card-title">${r.title}</span>${chipHtml(r.status)}</div>
+      <div class="req-card-meta">
+        ${tagHtml(r.type)}
+        <span>${fmtDateShort(r.createdAt)} 접수</span>
+        ${r.status!=='완료'?dayBadgeHtml(r.createdAt):''}
+      </div>
+    </div>`).join('');
+}
+
+let clientFilter = 'all';
+function filterClientReqs(status, el) {
+  clientFilter = status;
+  el.closest('.filter-bar').querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  renderClientTable();
+}
+function renderClientTable() {
+  const list = clientFilter === 'all' ? allRequests : allRequests.filter(r=>r.status===clientFilter);
+  renderTable('client-table-body', 'client-card-list', 'client-empty', list, false);
+}
+
+// ── 요청 등록 ─────────────────────────────────────────
+async function submitRequest() {
+  const title   = document.getElementById('req-title').value.trim();
+  const content = document.getElementById('req-content').value.trim();
+  const type    = document.getElementById('req-type').value;
+  const priority= document.getElementById('req-priority').value;
+  const due     = document.getElementById('req-due').value;
+  if (!title) { document.getElementById('req-error').textContent = '제목을 입력하세요.'; return; }
+  if (!content){ document.getElementById('req-error').textContent = '상세 내용을 입력하세요.'; return; }
+  const btn = document.getElementById('req-submit-btn');
+  btn.innerHTML = '<span class="spinner"></span> 등록 중...';
+  btn.disabled = true;
+  try {
+    const now = firebase.firestore.FieldValue.serverTimestamp();
+    await db.collection('requests').add({
+      title, content, type, priority,
+      status: '접수',
+      clientId:   userProfile.clientId,
+      clientName: userProfile.clientName || '',
+      createdBy:  currentUser.uid,
+      createdAt:  now,
+      updatedAt:  now,
+      dueDate:    due || null,
+      history: [{ status: '접수', memo: '요청이 접수되었습니다.', at: new Date().toISOString(), by: userProfile.name || userProfile.email }]
+    });
+    document.getElementById('req-title').value   = '';
+    document.getElementById('req-content').value = '';
+    document.getElementById('req-due').value     = '';
+    document.getElementById('req-error').textContent = '';
+    navTo('client-requests', null);
+  } catch(e) {
+    document.getElementById('req-error').textContent = '등록 중 오류가 발생했습니다.';
+  } finally {
+    btn.innerHTML = '요청 등록하기';
+    btn.disabled = false;
+  }
+}
+
+// ── 요청 상세 모달 ────────────────────────────────────
+async function openReqDetail(id) {
+  currentDetailId = id;
+  const req = allRequests.find(r => r.id === id);
+  if (!req) return;
+  const isAdmin = userProfile.role === 'admin';
+
+  // 헤더
+  document.getElementById('detail-tags').innerHTML =
+    (isAdmin ? `<span class="tag tag-green">${req.clientName||''}</span>` : '') + tagHtml(req.type) +
+    `<span class="chip ${PRIORITY_CHIP[req.priority]||'chip-gray'}" style="font-size:10px">${req.priority}</span>`;
+  document.getElementById('detail-title').textContent    = req.title;
+  document.getElementById('detail-status-chip').innerHTML= chipHtml(req.status);
+  // 정보
+  document.getElementById('detail-created').textContent  = fmtDate(req.createdAt);
+  const n = daysElapsed(req.createdAt);
+  const cls = n<=1?'day-danger':n<=3?'day-warn':'day-ok';
+  document.getElementById('detail-elapsed').innerHTML    = `<span class="day-badge ${cls}">D+${n}일</span>`;
+  document.getElementById('detail-due').textContent      = req.dueDate ? req.dueDate.replace(/-/g,'.') : '—';
+  // 내용
+  document.getElementById('detail-content').textContent  = req.content;
+  // 타임라인
+  const tl = document.getElementById('detail-timeline');
+  const history = req.history || [];
+  tl.innerHTML = history.map(h => `
+    <div class="tl-item">
+      <div class="tl-dot" style="background:${STATUS_DOT[h.status]||'#888'}"></div>
+      <div class="tl-content">
+        <p class="tl-text"><strong>${h.status}</strong>${h.memo?' — '+h.memo:''}</p>
+        <p class="tl-date">${h.at ? new Date(h.at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : ''} · ${h.by||''}</p>
+      </div>
+    </div>`).join('') || '<p class="text-muted text-sm">이력이 없습니다.</p>';
+
+  // 관리자 액션
+  const area = document.getElementById('admin-action-area');
+  const saveBtn = document.getElementById('detail-save-btn');
+  if (isAdmin) {
+    area.style.display = '';
+    saveBtn.style.display = '';
+    document.getElementById('detail-new-status').value = '';
+    document.getElementById('detail-memo').value = '';
+  } else {
+    area.style.display = 'none';
+    saveBtn.style.display = 'none';
+  }
+
+  openModal('req-detail-modal');
+}
+
+async function saveDetailUpdate() {
+  const newStatus = document.getElementById('detail-new-status').value;
+  const memo      = document.getElementById('detail-memo').value.trim();
+  if (!newStatus && !memo) { closeModal('req-detail-modal'); return; }
+
+  const req = allRequests.find(r => r.id === currentDetailId);
+  const statusToUse = newStatus || req.status;
+  const historyEntry = {
+    status: statusToUse,
+    memo:   memo || '',
+    at:     new Date().toISOString(),
+    by:     userProfile.name || userProfile.email
+  };
+
+  await db.collection('requests').doc(currentDetailId).update({
+    status:    statusToUse,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    history:   firebase.firestore.FieldValue.arrayUnion(historyEntry)
+  });
+  closeModal('req-detail-modal');
+}
+
+// ── 모달 유틸 ─────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+// 오버레이 클릭으로 닫기
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
+});
+
+// ── 필터 칩 공통 토글 ─────────────────────────────────
+document.querySelectorAll('.filter-bar').forEach(bar => {
+  bar.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', function() {
+      this.closest('.filter-bar').querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+});
+</script>
+
+</body>
+</html>
