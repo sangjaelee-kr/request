@@ -1211,13 +1211,20 @@ document.querySelector('[data-page="admin-users"]').addEventListener('click', lo
 function subscribeAllRequests() {
   if (unsubRequests) unsubRequests();
   unsubRequests = db.collection('requests')
-    .orderBy('createdAt', 'desc')
     .onSnapshot(snap => {
-      allRequests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      allRequests = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => {
+          const ta = a.createdAt?.toDate?.() || new Date(0);
+          const tb = b.createdAt?.toDate?.() || new Date(0);
+          return tb - ta;
+        });
       updateMetrics();
       renderAdminTable();
       renderClientsTable();
       updateBadge();
+    }, err => {
+      console.error('요청 조회 오류:', err);
     });
 }
 
@@ -1309,13 +1316,21 @@ function renderTable(tbodyId, cardId, emptyId, list, isAdmin) {
 // ── 요청 구독 (고객) ──────────────────────────────────
 function subscribeClientRequests() {
   if (unsubRequests) unsubRequests();
+  // orderBy 제거 → JS에서 정렬 (복합 인덱스 불필요)
   unsubRequests = db.collection('requests')
     .where('clientId', '==', userProfile.clientId)
-    .orderBy('createdAt', 'desc')
     .onSnapshot(snap => {
-      allRequests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      allRequests = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => {
+          const ta = a.createdAt?.toDate?.() || new Date(0);
+          const tb = b.createdAt?.toDate?.() || new Date(0);
+          return tb - ta;
+        });
       renderClientHome();
       renderClientTable();
+    }, err => {
+      console.error('요청 조회 오류:', err);
     });
 }
 
