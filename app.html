@@ -773,13 +773,17 @@ button, input, select, textarea { font-family: inherit; }
       </button>
     </div>
     <div class="modal-body">
-      <div class="notice notice-warn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        Firebase Auth 계정을 먼저 만든 후, 여기서 역할과 고객사를 연결하세요.
+      <div class="notice notice-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        계정 생성 후 사용자에게 이메일과 초기 비밀번호를 전달하세요.
       </div>
       <div class="form-group">
-        <label class="form-label">이메일 (Firebase Auth 계정과 동일)</label>
+        <label class="form-label">이메일</label>
         <input id="new-user-email" class="form-input" type="email" placeholder="client@company.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">비밀번호 (초기 비밀번호)</label>
+        <input id="new-user-pw" class="form-input" type="password" placeholder="6자리 이상">
       </div>
       <div class="form-group">
         <label class="form-label">이름</label>
@@ -788,8 +792,9 @@ button, input, select, textarea { font-family: inherit; }
       <div class="form-group">
         <label class="form-label">역할</label>
         <select id="new-user-role" class="form-input select-input" onchange="toggleClientSelect()">
-          <option value="client">일반 사용자 (client)</option>
-          <option value="admin">관리자 (admin)</option>
+          <option value="client">일반 사용자 (고객사)</option>
+          <option value="내부직원">내부 직원</option>
+          <option value="admin">관리자</option>
         </select>
       </div>
       <div class="form-group" id="client-select-group">
@@ -825,6 +830,10 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.firestore();
+
+// 계정 생성용 보조 앱 (현재 로그인 세션 유지하면서 신규 계정 생성)
+const secondaryApp  = firebase.initializeApp(firebaseConfig, 'secondary');
+const secondaryAuth = secondaryApp.auth();
 
 // ── 전역 상태 ──────────────────────────────────────────
 let currentUser    = null;
@@ -953,33 +962,43 @@ async function initApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-shell').classList.add('visible');
 
-  const isAdmin = userProfile.role === 'admin';
-  const name    = userProfile.name || userProfile.email.split('@')[0];
+  const role       = userProfile.role;
+  const isAdmin    = role === 'admin';
+  const isStaff    = role === '내부직원';
+  const isInternal = isAdmin || isStaff;  // 내부 구성원 (전체 요청 조회 가능)
+  const name       = userProfile.name || userProfile.email.split('@')[0];
 
   // 사이드바 정보
   document.getElementById('sb-uname').textContent  = name;
   document.getElementById('sb-uemail').textContent  = userProfile.email;
-  document.getElementById('sb-sub').textContent     = isAdmin ? '관리자 모드' : (userProfile.clientName || '');
+  document.getElementById('sb-sub').textContent     = isAdmin ? '관리자 모드' : isStaff ? '내부직원' : (userProfile.clientName || '');
   const av = document.getElementById('sb-avatar');
   av.textContent = initials(name);
-  av.style.background = isAdmin ? '#eeedfd' : '#e6f2de';
-  av.style.color      = isAdmin ? '#3d359e' : '#2d6010';
+  av.style.background = isAdmin ? '#eeedfd' : isStaff ? '#fef0d8' : '#e6f2de';
+  av.style.color      = isAdmin ? '#3d359e' : isStaff ? '#7a4a0a' : '#2d6010';
 
   // 모바일 배지
   document.getElementById('mobile-role-badge').innerHTML = isAdmin
     ? '<span class="chip chip-purple" style="font-size:10px">관리자</span>'
+    : isStaff
+    ? '<span class="chip chip-amber" style="font-size:10px">내부직원</span>'
     : '<span class="chip chip-green" style="font-size:10px">'+( userProfile.clientName||'고객')+'</span>';
 
   // 메뉴 표시
-  document.getElementById('admin-menu').style.display  = isAdmin ? '' : 'none';
-  document.getElementById('client-menu').style.display = isAdmin ? 'none' : '';
-  document.getElementById('bn-admin').style.display    = isAdmin ? '' : 'none';
-  document.getElementById('bn-client').style.display   = isAdmin ? 'none' : '';
+  document.getElementById('admin-menu').style.display  = isInternal ? '' : 'none';
+  document.getElementById('client-menu').style.display = isInternal ? 'none' : '';
+  document.getElementById('bn-admin').style.display    = isInternal ? '' : 'none';
+  document.getElementById('bn-client').style.display   = isInternal ? 'none' : '';
+
+  // 내부직원은 고객사/사용자 관리 메뉴 숨김
+  document.querySelectorAll('[data-page="admin-clients"],[data-page="admin-users"]').forEach(el => {
+    el.style.display = isAdmin ? '' : 'none';
+  });
 
   // 고객사 목록 로드
   await loadClients();
 
-  if (isAdmin) {
+  if (isInternal) {
     subscribeAllRequests();
     navTo('admin-dashboard', document.querySelector('#admin-menu .sb-item'));
   } else {
@@ -1013,7 +1032,7 @@ function navTo(pageKey, clickedEl) {
     'admin-dashboard': 0, 'admin-requests': 1, 'admin-clients': 2, 'admin-users': 3,
     'client-home': 0, 'new-request': 1, 'client-requests': 2
   };
-  const isAdmin = userProfile && userProfile.role === 'admin';
+  const isAdmin = userProfile && (userProfile.role === 'admin' || userProfile.role === '내부직원');
   const bnItems = document.querySelectorAll(isAdmin ? '#bn-admin .bn-item' : '#bn-client .bn-item');
   if (pageMap[pageKey] !== undefined && bnItems[pageMap[pageKey]]) {
     bnItems[pageMap[pageKey]].classList.add('active');
@@ -1105,6 +1124,8 @@ async function loadUsers() {
     const clientName = u.clientId ? (clientsMap[u.clientId] || u.clientId) : '—';
     const roleBadge = u.role === 'admin'
       ? '<span class="chip chip-purple">관리자</span>'
+      : u.role === '내부직원'
+      ? '<span class="chip chip-amber">내부직원</span>'
       : '<span class="chip chip-blue">일반사용자</span>';
     return `<tr>
       <td class="text-sm">${u.email}</td>
@@ -1119,6 +1140,7 @@ async function loadUsers() {
 
 function openUserModal() {
   document.getElementById('new-user-email').value = '';
+  document.getElementById('new-user-pw').value    = '';
   document.getElementById('new-user-name').value  = '';
   document.getElementById('new-user-role').value  = 'client';
   document.getElementById('user-modal-error').textContent = '';
@@ -1133,21 +1155,47 @@ function toggleClientSelect() {
 
 async function saveUserProfile() {
   const email    = document.getElementById('new-user-email').value.trim();
+  const pw       = document.getElementById('new-user-pw').value;
   const name     = document.getElementById('new-user-name').value.trim();
   const role     = document.getElementById('new-user-role').value;
   const clientId = document.getElementById('new-user-client').value;
-  if (!email) { document.getElementById('user-modal-error').textContent = '이메일을 입력하세요.'; return; }
-  if (role === 'client' && !clientId) { document.getElementById('user-modal-error').textContent = '고객사를 선택하세요.'; return; }
-  const data = {
-    email, name, role,
-    clientId:   role === 'client' ? clientId : null,
-    clientName: role === 'client' ? (clientsMap[clientId]||'') : null,
-    createdAt:  firebase.firestore.FieldValue.serverTimestamp()
-  };
-  // uid를 이메일로 검색할 수 없으므로 이메일을 doc ID로 사용
-  await db.collection('users').doc(email.replace(/\./g,'_')).set(data);
-  closeModal('user-modal');
-  loadUsers();
+  const errEl    = document.getElementById('user-modal-error');
+
+  if (!email)  { errEl.textContent = '이메일을 입력하세요.'; return; }
+  if (!pw || pw.length < 6) { errEl.textContent = '비밀번호는 6자리 이상이어야 합니다.'; return; }
+  if (role === 'client' && !clientId) { errEl.textContent = '고객사를 선택하세요.'; return; }
+
+  const saveBtn = document.querySelector('#user-modal .modal-footer .btn-primary');
+  saveBtn.innerHTML = '<span class="spinner"></span>';
+  saveBtn.disabled = true;
+
+  try {
+    // 보조 앱으로 계정 생성 (현재 관리자 세션 유지)
+    const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pw);
+    const uid  = cred.user.uid;
+    await secondaryAuth.signOut();
+
+    // Firestore에 프로필 저장 (doc ID = uid)
+    await db.collection('users').doc(uid).set({
+      email, name, role,
+      clientId:   role === 'client' ? clientId : null,
+      clientName: role === 'client' ? (clientsMap[clientId]||'') : null,
+      createdAt:  firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    closeModal('user-modal');
+    loadUsers();
+  } catch(e) {
+    const msg = e.code === 'auth/email-already-in-use'
+      ? '이미 존재하는 이메일입니다.'
+      : e.code === 'auth/invalid-email'
+      ? '이메일 형식이 올바르지 않습니다.'
+      : '계정 생성 실패: ' + e.message;
+    errEl.textContent = msg;
+  } finally {
+    saveBtn.innerHTML = '추가';
+    saveBtn.disabled = false;
+  }
 }
 
 async function deleteUserProfile(docId) {
