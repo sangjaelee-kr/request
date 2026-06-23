@@ -112,6 +112,10 @@ button, input, select, textarea { font-family: inherit; }
 }
 .card-title { font-size: 13px; font-weight: 600; color: #888; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .05em; font-size: 11px; }
 
+/* ── 클릭 가능한 카드 ── */
+.metric-clickable { cursor: pointer; transition: box-shadow .15s, border-color .15s; }
+.metric-clickable:hover { box-shadow: 0 2px 10px rgba(0,0,0,.1); }
+.metric-clickable.active-card { border-color: #1a1a1a; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
 /* ── 지표 그리드 ── */
 .metric-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
 .metric-box { background: #fff; border: 1px solid #eeede8; border-radius: 12px; padding: 14px 16px; }
@@ -431,20 +435,13 @@ window.addEventListener('unhandledrejection', function(e) {
           <span class="chip chip-purple">관리자</span>
         </div>
         <div class="metric-grid">
-          <div class="metric-box"><p class="metric-n" id="m-total">0</p><p class="metric-l">전체</p></div>
-          <div class="metric-box"><p class="metric-n" style="color:#888" id="m-wait">0</p><p class="metric-l">대기</p></div>
-          <div class="metric-box"><p class="metric-n" style="color:#1558a0" id="m-new">0</p><p class="metric-l">접수</p></div>
-          <div class="metric-box"><p class="metric-n" style="color:#7a4a0a" id="m-progress">0</p><p class="metric-l">처리중</p></div>
-          <div class="metric-box"><p class="metric-n" style="color:#2d6010" id="m-done">0</p><p class="metric-l">완료</p></div>
+          <div class="metric-box metric-clickable active-card" id="mc-all" onclick="filterByCard('all',this)"><p class="metric-n" id="m-total">0</p><p class="metric-l">전체</p></div>
+          <div class="metric-box metric-clickable" id="mc-wait" onclick="filterByCard('대기',this)"><p class="metric-n" style="color:#888" id="m-wait">0</p><p class="metric-l">대기</p></div>
+          <div class="metric-box metric-clickable" id="mc-new" onclick="filterByCard('접수',this)"><p class="metric-n" style="color:#1558a0" id="m-new">0</p><p class="metric-l">접수</p></div>
+          <div class="metric-box metric-clickable" id="mc-progress" onclick="filterByCard('처리중',this)"><p class="metric-n" style="color:#7a4a0a" id="m-progress">0</p><p class="metric-l">처리중</p></div>
+          <div class="metric-box metric-clickable" id="mc-done" onclick="filterByCard('완료',this)"><p class="metric-n" style="color:#2d6010" id="m-done">0</p><p class="metric-l">완료</p></div>
         </div>
-        <div class="filter-bar" id="admin-filter-bar">
-          <span class="filter-chip active" data-filter="all" onclick="filterRequests('all',this)">전체</span>
-          <span class="filter-chip" data-filter="대기" onclick="filterRequests('대기',this)">대기</span>
-          <span class="filter-chip" data-filter="접수" onclick="filterRequests('접수',this)">접수</span>
-          <span class="filter-chip" data-filter="처리중" onclick="filterRequests('처리중',this)">처리중</span>
-          <span class="filter-chip" data-filter="완료" onclick="filterRequests('완료',this)">완료</span>
-          <span class="filter-chip" data-filter="보류" onclick="filterRequests('보류',this)">보류</span>
-          <span class="filter-spacer"></span>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
           <select id="client-filter" class="form-input select-input" style="width:130px;font-size:12px;padding:5px 28px 5px 10px;" onchange="filterByClient(this.value)">
             <option value="all">전체 고객사</option>
           </select>
@@ -785,7 +782,6 @@ window.addEventListener('unhandledrejection', function(e) {
         <select id="new-user-role" class="form-input select-input" onchange="toggleClientSelect()">
           <option value="client">일반 사용자 (고객사)</option>
           <option value="내부직원">내부 직원</option>
-          <option value="admin">관리자</option>
         </select>
       </div>
       <div class="form-group" id="client-select-group">
@@ -1235,6 +1231,12 @@ function applyFilters(list) {
   });
 }
 
+function filterByCard(status, el) {
+  currentReqFilter = status;
+  document.querySelectorAll('.metric-clickable').forEach(c => c.classList.remove('active-card'));
+  el.classList.add('active-card');
+  renderAdminTable();
+}
 function filterRequests(status, el) {
   currentReqFilter = status;
   document.querySelectorAll('#admin-filter-bar .filter-chip').forEach(c => c.classList.remove('active'));
