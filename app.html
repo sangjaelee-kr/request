@@ -537,10 +537,6 @@ window.addEventListener('unhandledrejection', function(e) {
             사용자 프로필 추가
           </button>
         </div>
-        <div class="notice notice-info">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          실제 계정 생성은 Firebase Console → Authentication에서 하세요. 여기서는 역할(role)과 고객사를 연결합니다.
-        </div>
         <div class="table-wrap">
           <table class="data-table">
             <thead><tr><th>이메일</th><th>이름</th><th>역할</th><th>고객사</th><th>등록일</th><th></th></tr></thead>
@@ -1076,6 +1072,10 @@ function navTo(pageKey, clickedEl) {
   };
   document.getElementById('mt-title').textContent = titles[pageKey] || '요청접수현황';
 
+  // 페이지별 데이터 로드
+  if (pageKey === 'admin-users')   loadUsers();
+  if (pageKey === 'admin-clients') loadClients();
+
   // 스크롤 상단
   document.getElementById('main-content').scrollTop = 0;
 }
@@ -1536,11 +1536,7 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
 document.querySelectorAll('.filter-bar').forEach(bar => {
   bar.querySelectorAll('.filter-chip').forEach(chip => {
     chip.addEventListener('click', function() {
-      this.closest('.filter-bar').querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
-      this.classList.add('active');
-    });
-  });
-});
+      this.closest('.filter-bar').querySelectorAll('.f
 </script>
 </body>
 </html>
