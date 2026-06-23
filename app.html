@@ -423,6 +423,7 @@ button, input, select, textarea { font-family: inherit; }
         </div>
         <div class="filter-bar" id="admin-filter-bar">
           <span class="filter-chip active" data-filter="all" onclick="filterRequests('all',this)">전체</span>
+          <span class="filter-chip" data-filter="대기" onclick="filterRequests('대기',this)">대기</span>
           <span class="filter-chip" data-filter="접수" onclick="filterRequests('접수',this)">접수</span>
           <span class="filter-chip" data-filter="처리중" onclick="filterRequests('처리중',this)">처리중</span>
           <span class="filter-chip" data-filter="완료" onclick="filterRequests('완료',this)">완료</span>
@@ -465,6 +466,7 @@ button, input, select, textarea { font-family: inherit; }
         </div>
         <div class="filter-bar">
           <span class="filter-chip active" onclick="filterRequests2('all',this)">전체</span>
+          <span class="filter-chip" onclick="filterRequests2('대기',this)">대기</span>
           <span class="filter-chip" onclick="filterRequests2('접수',this)">접수</span>
           <span class="filter-chip" onclick="filterRequests2('처리중',this)">처리중</span>
           <span class="filter-chip" onclick="filterRequests2('완료',this)">완료</span>
@@ -580,6 +582,7 @@ button, input, select, textarea { font-family: inherit; }
         </div>
         <div class="filter-bar">
           <span class="filter-chip active" onclick="filterClientReqs('all',this)">전체</span>
+          <span class="filter-chip" onclick="filterClientReqs('대기',this)">대기</span>
           <span class="filter-chip" onclick="filterClientReqs('접수',this)">접수</span>
           <span class="filter-chip" onclick="filterClientReqs('처리중',this)">처리중</span>
           <span class="filter-chip" onclick="filterClientReqs('완료',this)">완료</span>
@@ -718,6 +721,7 @@ button, input, select, textarea { font-family: inherit; }
         <div class="form-group">
           <select id="detail-new-status" class="form-input select-input" style="margin-bottom:10px">
             <option value="">상태 유지</option>
+            <option value="접수">접수</option>
             <option value="처리중">처리중</option>
             <option value="완료">완료</option>
             <option value="보류">보류</option>
@@ -846,12 +850,14 @@ let currentDetailId = null;
 
 // ── 유틸 ───────────────────────────────────────────────
 const STATUS_CHIP = {
+  '대기':   'chip-gray',
   '접수':   'chip-blue',
   '처리중': 'chip-amber',
   '완료':   'chip-green',
   '보류':   'chip-gray'
 };
 const STATUS_DOT = {
+  '대기':   '#bbb',
   '접수':   '#1558a0',
   '처리중': '#7a4a0a',
   '완료':   '#2d6010',
@@ -1389,14 +1395,14 @@ async function submitRequest() {
     const now = firebase.firestore.FieldValue.serverTimestamp();
     await db.collection('requests').add({
       title, content, type, priority,
-      status: '접수',
+      status: '대기',
       clientId:   userProfile.clientId,
       clientName: userProfile.clientName || '',
       createdBy:  currentUser.uid,
       createdAt:  now,
       updatedAt:  now,
       dueDate:    due || null,
-      history: [{ status: '접수', memo: '요청이 접수되었습니다.', at: new Date().toISOString(), by: userProfile.name || userProfile.email }]
+      history: [{ status: '대기', memo: '요청이 등록되었습니다. 관리자 접수 대기 중입니다.', at: new Date().toISOString(), by: userProfile.name || userProfile.email }]
     });
     document.getElementById('req-title').value   = '';
     document.getElementById('req-content').value = '';
