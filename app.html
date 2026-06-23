@@ -386,7 +386,7 @@ window.addEventListener('unhandledrejection', function(e) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
           요청 목록 <span id="sb-badge" class="sb-badge" style="display:none">0</span>
         </div>
-        <div class="sb-item" data-page="admin-clients" onclick="navTo('admin-clients',this)">
+        <div class="sb-item" data-page="admin-clients" onclick="navTo('admin-clients',this)" style="display:none">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
           고객사 관리
         </div>
@@ -676,7 +676,7 @@ window.addEventListener('unhandledrejection', function(e) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
         <span>요청목록</span>
       </div>
-      <div class="bn-item" onclick="navTo('admin-clients',null)">
+      <div class="bn-item" onclick="navTo('admin-clients',null)" style="display:none">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
         <span>고객사</span>
       </div>
@@ -819,8 +819,8 @@ window.addEventListener('unhandledrejection', function(e) {
         </select>
       </div>
       <div class="form-group" id="client-select-group">
-        <label class="form-label">고객사</label>
-        <select id="new-user-client" class="form-input select-input"></select>
+        <label class="form-label">고객사명</label>
+        <input id="new-user-client-name" class="form-input" type="text" placeholder="고객사명을 입력하세요">
       </div>
       <p id="user-modal-error" class="error-msg" style="text-align:left"></p>
     </div>
@@ -860,7 +860,7 @@ const secondaryAuth = secondaryApp.auth();
 let currentUser    = null;
 let userProfile    = null;
 let allRequests    = [];
-let clientsMap     = {};       // clientId → name
+let clientsMap     = {};       // clientName 기반 (미사용)
 let unsubRequests  = null;
 let currentReqFilter = 'all';
 let currentClientFilter = 'all';
@@ -1022,7 +1022,6 @@ async function initApp() {
   });
 
   // 고객사 목록 로드
-  await loadClients();
 
   if (isInternal) {
     subscribeAllRequests();
@@ -1055,7 +1054,7 @@ function navTo(pageKey, clickedEl) {
   // 모바일 하단탭 활성화
   document.querySelectorAll('.bn-item').forEach(i => i.classList.remove('active'));
   const pageMap = {
-    'admin-dashboard': 0, 'admin-requests': 1, 'admin-clients': 2, 'admin-users': 3,
+    'admin-dashboard': 0, 'admin-requests': 1, 'admin-users': 2,
     'client-home': 0, 'new-request': 1, 'client-requests': 2
   };
   const isAdmin = userProfile && (userProfile.role === 'admin' || userProfile.role === '내부직원');
@@ -1080,27 +1079,14 @@ function navTo(pageKey, clickedEl) {
   document.getElementById('main-content').scrollTop = 0;
 }
 
-// ── 고객사 로드 ────────────────────────────────────────
-async function loadClients() {
-  const snap = await db.collection('clients').orderBy('name').get();
-  clientsMap = {};
-  snap.forEach(d => { clientsMap[d.id] = d.data().name; });
-
-  // 클라이언트 필터 셀렉트 업데이트
+// ── 고객사 필터 업데이트 (allRequests에서 고유 clientName 추출) ──
+function loadClients() {
+  const names = [...new Set(allRequests.map(r => r.clientName).filter(Boolean))].sort();
   const sel = document.getElementById('client-filter');
+  const prev = sel.value;
   sel.innerHTML = '<option value="all">전체 고객사</option>';
-  Object.entries(clientsMap).forEach(([id, name]) => {
-    sel.innerHTML += `<option value="${id}">${name}</option>`;
-  });
-
-  // 고객사 테이블 렌더
-  renderClientsTable();
-
-  // 사용자 모달 고객사 셀렉트
-  const usel = document.getElementById('new-user-client');
-  usel.innerHTML = '<option value="">고객사 선택</option>';
-  Object.entries(clientsMap).forEach(([id, name]) => {
-    usel.innerHTML += `<option value="${id}">${name}</option>`;
+  names.forEach(name => {
+    sel.innerHTML += `<option value="${name}"${prev===name?' selected':''}>${name}</option>`;
   });
 }
 
@@ -1111,7 +1097,7 @@ function renderClientsTable() {
   if (entries.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
   empty.style.display = 'none';
   tbody.innerHTML = entries.map(([id, name]) => {
-    const count = allRequests.filter(r => r.clientId === id).length;
+    const count = allRequests.filter(r => r.clientName === name).length;
     return `<tr>
       <td class="fw-600">${name}</td>
       <td class="text-muted text-sm">—</td>
@@ -1127,13 +1113,11 @@ async function saveClient() {
   await db.collection('clients').add({ name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
   document.getElementById('new-client-name').value = '';
   closeModal('client-modal');
-  await loadClients();
 }
 
 async function deleteClient(id, name) {
   if (!confirm(`"${name}" 고객사를 삭제하시겠습니까?`)) return;
   await db.collection('clients').doc(id).delete();
-  await loadClients();
 }
 
 function openClientModal() {
@@ -1151,7 +1135,7 @@ async function loadUsers() {
   empty.style.display = 'none';
   tbody.innerHTML = snap.docs.map(d => {
     const u = d.data();
-    const clientName = u.clientId ? (clientsMap[u.clientId] || u.clientId) : '—';
+    const clientName = u.clientName || '—';
     const roleBadge = u.role === 'admin'
       ? '<span class="chip chip-purple">관리자</span>'
       : u.role === '내부직원'
@@ -1181,19 +1165,20 @@ function openUserModal() {
 function toggleClientSelect() {
   const role = document.getElementById('new-user-role').value;
   document.getElementById('client-select-group').style.display = role === 'client' ? '' : 'none';
+  document.getElementById('new-user-client-name').value = '';
 }
 
 async function saveUserProfile() {
   const email    = document.getElementById('new-user-email').value.trim();
   const pw       = document.getElementById('new-user-pw').value;
   const name     = document.getElementById('new-user-name').value.trim();
-  const role     = document.getElementById('new-user-role').value;
-  const clientId = document.getElementById('new-user-client').value;
-  const errEl    = document.getElementById('user-modal-error');
+  const role       = document.getElementById('new-user-role').value;
+  const clientName = document.getElementById('new-user-client-name').value.trim();
+  const errEl      = document.getElementById('user-modal-error');
 
   if (!email)  { errEl.textContent = '이메일을 입력하세요.'; return; }
   if (!pw || pw.length < 6) { errEl.textContent = '비밀번호는 6자리 이상이어야 합니다.'; return; }
-  if (role === 'client' && !clientId) { errEl.textContent = '고객사를 선택하세요.'; return; }
+  if (role === 'client' && !clientName) { errEl.textContent = '고객사명을 입력하세요.'; return; }
 
   const saveBtn = document.querySelector('#user-modal .modal-footer .btn-primary');
   saveBtn.innerHTML = '<span class="spinner"></span>';
@@ -1208,8 +1193,7 @@ async function saveUserProfile() {
     // Firestore에 프로필 저장 (doc ID = uid)
     await db.collection('users').doc(uid).set({
       email, name, role,
-      clientId:   role === 'client' ? clientId : null,
-      clientName: role === 'client' ? (clientsMap[clientId]||'') : null,
+      clientName: role === 'client' ? clientName : null,
       createdAt:  firebase.firestore.FieldValue.serverTimestamp()
     });
 
@@ -1252,7 +1236,7 @@ function subscribeAllRequests() {
       updateMetrics();
       renderAdminTable();
       renderAdminTable2();
-      renderClientsTable();
+      loadClients();
       updateBadge();
     }, err => {
       console.error('요청 조회 오류:', err);
@@ -1277,7 +1261,7 @@ function updateBadge() {
 function applyFilters(list) {
   return list.filter(r => {
     const statusOk = currentReqFilter === 'all' || r.status === currentReqFilter;
-    const clientOk = currentClientFilter === 'all' || r.clientId === currentClientFilter;
+    const clientOk = currentClientFilter === 'all' || r.clientName === currentClientFilter;
     return statusOk && clientOk;
   });
 }
@@ -1356,7 +1340,7 @@ function subscribeClientRequests() {
   if (unsubRequests) unsubRequests();
   // orderBy 제거 → JS에서 정렬 (복합 인덱스 불필요)
   unsubRequests = db.collection('requests')
-    .where('clientId', '==', userProfile.clientId)
+    .where('clientName', '==', userProfile.clientName)
     .onSnapshot(snap => {
       allRequests = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
@@ -1429,7 +1413,6 @@ async function submitRequest() {
     await db.collection('requests').add({
       title, content, type, priority,
       status: '대기',
-      clientId:   userProfile.clientId,
       clientName: userProfile.clientName || '',
       createdBy:  currentUser.uid,
       createdAt:  now,
