@@ -112,7 +112,7 @@ button, input, select, textarea { font-family: inherit; }
 .card-title { font-size: 13px; font-weight: 600; color: #888; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .05em; font-size: 11px; }
 
 /* ── 지표 그리드 ── */
-.metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+.metric-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
 .metric-box { background: #fff; border: 1px solid #eeede8; border-radius: 12px; padding: 14px 16px; }
 .metric-n { font-size: 28px; font-weight: 700; line-height: 1; }
 .metric-l { font-size: 11px; color: #888; margin-top: 6px; }
@@ -274,7 +274,7 @@ button, input, select, textarea { font-family: inherit; }
   .mobile-topbar { display: flex; }
   .bottom-nav { display: block; }
   .page { padding: 16px 14px 80px; }
-  .metric-grid { grid-template-columns: repeat(2, 1fr); }
+  .metric-grid { grid-template-columns: repeat(3, 1fr); }
   .home-stat-grid { grid-template-columns: repeat(3, 1fr); }
   .data-table { display: none; }
   .req-list { display: block; }
@@ -284,7 +284,7 @@ button, input, select, textarea { font-family: inherit; }
 @media (max-width: 480px) {
   body { background: #fff; }
   .page { padding: 12px 12px 90px; }
-  .metric-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .metric-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .metric-n { font-size: 22px; }
   .home-action-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .modal { max-height: 100vh; border-radius: 0; max-width: 100%; }
@@ -417,6 +417,7 @@ button, input, select, textarea { font-family: inherit; }
         </div>
         <div class="metric-grid">
           <div class="metric-box"><p class="metric-n" id="m-total">0</p><p class="metric-l">전체</p></div>
+          <div class="metric-box"><p class="metric-n" style="color:#888" id="m-wait">0</p><p class="metric-l">대기</p></div>
           <div class="metric-box"><p class="metric-n" style="color:#1558a0" id="m-new">0</p><p class="metric-l">접수</p></div>
           <div class="metric-box"><p class="metric-n" style="color:#7a4a0a" id="m-progress">0</p><p class="metric-l">처리중</p></div>
           <div class="metric-box"><p class="metric-n" style="color:#2d6010" id="m-done">0</p><p class="metric-l">완료</p></div>
@@ -1238,8 +1239,8 @@ function subscribeAllRequests() {
 }
 
 function updateMetrics() {
-  const filtered = applyFilters(allRequests);
   document.getElementById('m-total').textContent    = allRequests.length;
+  document.getElementById('m-wait').textContent     = allRequests.filter(r=>r.status==='대기').length;
   document.getElementById('m-new').textContent      = allRequests.filter(r=>r.status==='접수').length;
   document.getElementById('m-progress').textContent = allRequests.filter(r=>r.status==='처리중').length;
   document.getElementById('m-done').textContent     = allRequests.filter(r=>r.status==='완료').length;
@@ -1506,6 +1507,4 @@ async function saveDetailUpdate() {
   closeModal('req-detail-modal');
 }
 
-// ── 모달 유틸 ─────────────────────────────────────────
-function openModal(id)  { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).class
+// ── 모달 유틸 ─────────────────────────
