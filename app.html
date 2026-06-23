@@ -6,9 +6,9 @@
 <title>요청접수현황 시스템</title>
 
 <!-- Firebase v10 compat -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
 <style>
 /* ── 리셋 ── */
@@ -310,6 +310,21 @@ button, input, select, textarea { font-family: inherit; }
 .text-sm { font-size: 12px; }
 .fw-600 { font-weight: 600; }
 </style>
+<script>
+window.onerror = function(msg, src, line, col, err) {
+  var el = document.getElementById('login-error');
+  if (!el) {
+    el = document.createElement('p');
+    el.style.cssText = 'color:red;font-size:12px;padding:8px;background:#fff0f0;border-radius:6px;margin-top:8px;word-break:break-all;';
+    document.body.prepend(el);
+  }
+  el.textContent = '오류: ' + msg + ' (line ' + line + ')';
+};
+window.addEventListener('unhandledrejection', function(e) {
+  var el = document.getElementById('login-error');
+  if (el) el.textContent = '오류: ' + (e.reason?.message || e.reason?.code || String(e.reason));
+});
+</script>
 </head>
 <body>
 
@@ -1513,6 +1528,19 @@ async function saveDetailUpdate() {
   closeModal('req-detail-modal');
 }
 
-// ── 모달 유틸 ─────────────────────────────────�
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
-f
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
+});
+document.querySelectorAll('.filter-bar').forEach(bar => {
+  bar.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', function() {
+      this.closest('.filter-bar').querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+});
+</script>
+</body>
+</html>
