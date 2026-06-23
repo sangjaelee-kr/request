@@ -1301,13 +1301,13 @@ function renderTable(tbodyId, cardId, emptyId, list, isAdmin) {
   empty.style.display = 'none';
   // 테이블 (데스크탑)
   tbody.innerHTML = list.map(r => {
-    const due = r.dueDate ? fmtDateShort({ toDate: () => new Date(r.dueDate) }) : '—';
+    const due = r.dueDate ? fmtDate({ toDate: () => new Date(r.dueDate) }) : '—';
     return `<tr onclick="openReqDetail('${r.id}')">
       <td class="td-title"><p title="${r.title}">${r.title}</p>${isAdmin?`<p class="td-meta">${r.clientName||''}</p>`:''}</td>
       ${isAdmin?`<td>${tagHtml(r.clientName||'')}</td>`:''}
       <td>${tagHtml(r.type)}</td>
       <td><span class="chip ${PRIORITY_CHIP[r.priority]||'chip-gray'}">${r.priority}</span></td>
-      <td class="text-muted text-sm">${fmtDateShort(r.createdAt)}</td>
+      <td class="text-muted text-sm">${fmtDate(r.createdAt)}</td>
       <td>${r.status!=='완료'?dayBadgeHtml(r.createdAt):'<span class="text-muted text-sm">완료</span>'}</td>
       <td class="text-muted text-sm">${due}</td>
       <td>${chipHtml(r.status)}</td>
@@ -1323,9 +1323,9 @@ function renderTable(tbodyId, cardId, emptyId, list, isAdmin) {
       <div class="req-card-meta">
         ${isAdmin?`<span class="tag ${TYPE_TAG[r.clientName]||'tag-green'}" style="background:#e6f2de;color:#2d6010">${r.clientName||''}</span>`:''}
         ${tagHtml(r.type)}
-        <span>${fmtDateShort(r.createdAt)} 접수</span>
+        <span>${fmtDate(r.createdAt)} 접수</span>
         ${r.status!=='완료'?dayBadgeHtml(r.createdAt):''}
-        ${r.dueDate?`<span class="text-muted">희망 ${fmtDateShort({toDate:()=>new Date(r.dueDate)})}</span>`:''}
+        ${r.dueDate?`<span class="text-muted">희망 ${fmtDate({toDate:()=>new Date(r.dueDate)})}</span>`:''}
       </div>
     </div>`).join('');
 }
@@ -1373,7 +1373,7 @@ function renderClientHome() {
       <div class="req-card-top"><span class="req-card-title">${r.title}</span>${chipHtml(r.status)}</div>
       <div class="req-card-meta">
         ${tagHtml(r.type)}
-        <span>${fmtDateShort(r.createdAt)} 접수</span>
+        <span>${fmtDate(r.createdAt)} 접수</span>
         ${r.status!=='완료'?dayBadgeHtml(r.createdAt):''}
       </div>
     </div>`).join('');
@@ -1507,4 +1507,4 @@ async function saveDetailUpdate() {
   closeModal('req-detail-modal');
 }
 
-// ── 모달 유틸 ─────────────────────────
+// ── 모달 유틸 ─────────────────────────────────
