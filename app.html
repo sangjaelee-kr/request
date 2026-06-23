@@ -1226,6 +1226,7 @@ function subscribeAllRequests() {
         });
       updateMetrics();
       renderAdminTable();
+      renderAdminTable2();
       renderClientsTable();
       updateBadge();
     }, err => {
@@ -1276,6 +1277,13 @@ function filterRequests2(status, el) {
 function renderAdminTable() {
   const filtered = applyFilters(allRequests);
   renderTable('admin-table-body', 'admin-card-list', 'admin-empty', filtered, true);
+}
+function renderAdminTable2() {
+  // admin-requests 페이지: 현재 선택된 필터 칩 기준으로 렌더
+  const activeChip = document.querySelector('#page-admin-requests .filter-chip.active');
+  const status = activeChip ? activeChip.textContent.trim() : 'all';
+  const filtered = status === '전체' || status === 'all' ? allRequests : allRequests.filter(r => r.status === status);
+  renderTable('admin-table-body2', 'admin-card-list2', 'admin-empty2', filtered, true);
 }
 
 function renderTable(tbodyId, cardId, emptyId, list, isAdmin) {
@@ -1500,19 +1508,4 @@ function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 // 오버레이 클릭으로 닫기
 document.querySelectorAll('.modal-overlay').forEach(el => {
-  el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
-});
-
-// ── 필터 칩 공통 토글 ─────────────────────────────────
-document.querySelectorAll('.filter-bar').forEach(bar => {
-  bar.querySelectorAll('.filter-chip').forEach(chip => {
-    chip.addEventListener('click', function() {
-      this.closest('.filter-bar').querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
-      this.classList.add('active');
-    });
-  });
-});
-</script>
-
-</body>
-</html>
+  el.addEventListener('click', e => { if (e.target === el) closeModal
