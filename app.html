@@ -47,7 +47,8 @@ button, input, select, textarea { font-family: inherit; }
   padding: 16px 10px;
   overflow-y: auto;
 }
-.sb-logo { font-size: 13px; font-weight: 700; color: #1a1a1a; padding: 4px 8px; margin-bottom: 2px; }
+.sb-logo { font-size: 13px; font-weight: 700; color: #1a1a1a; padding: 4px 8px; margin-bottom: 2px; display: flex; align-items: center; gap: 6px; }
+.sb-version { font-size: 9px; font-weight: 500; color: #bbb; letter-spacing: 0.3px; }
 .sb-sub { font-size: 11px; color: #aaa; padding: 0 8px 12px; border-bottom: 1px solid #f0efe9; margin-bottom: 10px; }
 .sb-section { font-size: 10px; font-weight: 600; color: #bbb; padding: 0 8px; margin: 10px 0 4px; letter-spacing: .06em; text-transform: uppercase; }
 .sb-item {
@@ -261,7 +262,7 @@ button, input, select, textarea { font-family: inherit; }
 .empty-state p { font-size: 13px; }
 
 /* ── 하단 네비 (모바일) ── */
-.bottom-nav { display: none; background: #fff; border-top: 1px solid #eeede8; padding-bottom: env(safe-area-inset-bottom); }
+.bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #eeede8; padding-bottom: env(safe-area-inset-bottom); z-index: 100; }
 .bn-inner { display: flex; }
 .bn-item { flex: 1; padding: 10px 4px 8px; text-align: center; font-size: 10px; color: #aaa; cursor: pointer; transition: color .12s; }
 .bn-item svg { width: 20px; height: 20px; margin: 0 auto 3px; display: block; }
@@ -279,6 +280,11 @@ button, input, select, textarea { font-family: inherit; }
   .data-table { display: none; }
   .req-list { display: block; }
   .table-wrap { background: transparent; border: none; }
+  /* 고객사/사용자 페이지는 모바일에서도 테이블 표시 */
+  #page-admin-clients .data-table,
+  #page-admin-users .data-table { display: table; width: 100%; font-size: 12px; }
+  #page-admin-clients .table-wrap,
+  #page-admin-users .table-wrap { overflow-x: auto; background: #fff; border: 1px solid #eeede8; border-radius: 10px; }
   .filter-spacer { display: none; }
 }
 @media (max-width: 480px) {
@@ -351,7 +357,7 @@ button, input, select, textarea { font-family: inherit; }
 
     <!-- 사이드바 -->
     <nav class="sidebar">
-      <p class="sb-logo">요청접수현황</p>
+      <p class="sb-logo">요청접수현황<span class="sb-version">v1.5</span></p>
       <p class="sb-sub" id="sb-sub">시스템</p>
 
       <!-- 관리자 메뉴 -->
@@ -1509,18 +1515,4 @@ async function saveDetailUpdate() {
 
 // ── 모달 유틸 ─────────────────────────────────�
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-document.querySelectorAll('.modal-overlay').forEach(el => {
-  el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
-});
-document.querySelectorAll('.filter-bar').forEach(bar => {
-  bar.querySelectorAll('.filter-chip').forEach(chip => {
-    chip.addEventListener('click', function() {
-      this.closest('.filter-bar').querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
-      this.classList.add('active');
-    });
-  });
-});
-</script>
-</body>
-</html>
+f
