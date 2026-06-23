@@ -324,7 +324,7 @@ button, input, select, textarea { font-family: inherit; }
       <label class="form-label">비밀번호</label>
       <input id="login-pw" class="form-input" type="password" placeholder="비밀번호" autocomplete="current-password">
     </div>
-    <button id="login-btn" class="btn btn-primary" style="width:100%;padding:12px;font-size:14px;justify-content:center;">
+    <button id="login-btn" type="button" class="btn btn-primary" style="width:100%;padding:12px;font-size:14px;justify-content:center;">
       로그인
     </button>
     <p id="login-error" class="error-msg"></p>
@@ -925,11 +925,12 @@ auth.onAuthStateChanged(async user => {
   }
 });
 
-document.getElementById('login-btn').addEventListener('click', async () => {
+async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
   const pw    = document.getElementById('login-pw').value;
   const btn   = document.getElementById('login-btn');
   if (!email || !pw) { showError('이메일과 비밀번호를 입력하세요.'); return; }
+  if (btn.disabled) return;
   btn.innerHTML = '<span class="spinner"></span>';
   btn.disabled = true;
   try {
@@ -937,12 +938,14 @@ document.getElementById('login-btn').addEventListener('click', async () => {
   } catch(e) {
     const msg = e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found'
       ? '이메일 또는 비밀번호가 올바르지 않습니다.'
-      : '로그인 중 오류가 발생했습니다.';
+      : '로그인 중 오류가 발생했습니다. (' + e.code + ')';
     showError(msg);
     btn.innerHTML = '로그인';
     btn.disabled = false;
   }
-});
+}
+document.getElementById('login-btn').addEventListener('click', doLogin);
+document.getElementById('login-btn').addEventListener('touchend', e => { e.preventDefault(); doLogin(); });
 
 document.getElementById('login-email').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('login-pw').focus(); });
 document.getElementById('login-pw').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('login-btn').click(); });
@@ -1505,7 +1508,4 @@ async function saveDetailUpdate() {
 
 // ── 모달 유틸 ─────────────────────────────────────────
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-// 오버레이 클릭으로 닫기
-document.querySelectorAll('.modal-overlay').forEach(el => {
-  el.addEventListener('click', e => { if (e.target === el) closeModal
+function closeModal(id) { document.getElementById(id).class
